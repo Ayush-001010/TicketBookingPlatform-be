@@ -44,7 +44,7 @@ app.get("/", (req, res) => {
   res.send("Hello, TypeScript!");
 });
 app.use("/authentication", authenticationRoutes);
-app.use("/railwayStation", railwayStationRoutes);
+app.use("/stations", railwayStationRoutes);
 app.use("/train", trainRoutes);
 
 server.listen(port, () => {
@@ -52,9 +52,8 @@ server.listen(port, () => {
     .sync()
     .then(() => {
       console.log("Everything working fine!!!");
-    })
-    .catch(() => {
-      console.log("Ohh shit something went wrong!!!");
+    })    .catch((error) => {
+      console.log("Ohh shit something went wrong!!!   ",error);
     });
   console.log(`Server is running at http://localhost:${port}`);
 });

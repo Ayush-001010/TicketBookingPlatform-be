@@ -10,10 +10,12 @@ import TrainCoach from "./Train/TrainCoach";
 import TrainFacilites from "./TrainFacilites";
 import Availability from "./Train/Availability";
 import Booking from "./Train/Booking";
+import State from "./Train/State";
 
 const model: Record<string, any> = {
   userMasterTable: userMasterTable,
   RailwayStationTable: RailwayStationTable,
+  State :  State,
   Places: Places,
   TypeOfCoach: TypeOfCoach,
   TypeOfTrain: TypeOfTrain,

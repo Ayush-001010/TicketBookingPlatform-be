@@ -1,4 +1,4 @@
-import { addStation, editStation, getState, getStations } from "../Controller/Master/RailwayDetails";
+import { addStation, editStation, getState, getStationCardValues, getStations, searchStation } from "../Controller/Master/RailwayDetails";
 
 const express = require("express");
 
@@ -8,5 +8,7 @@ route.post("/getState" , getState);
 route.post("/getStation" , getStations);
 route.post("/addStation" , addStation);
 route.post("/editStation" , editStation);
+route.post("/getStationCardValues" , getStationCardValues);
+route.post("/search" , searchStation);
 
 export default route;

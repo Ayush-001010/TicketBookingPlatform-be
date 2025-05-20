@@ -1,4 +1,3 @@
-import RailwayStationTable from "./RailwayStation";
 import userMasterTable from "./userMasterTable";
 import Places from "./Places";
 import TypeOfCoach from "./TypeOfCoach";
@@ -14,7 +13,6 @@ import State from "./Train/State";
 
 const model: Record<string, any> = {
   userMasterTable: userMasterTable,
-  RailwayStationTable: RailwayStationTable,
   State :  State,
   Places: Places,
   TypeOfCoach: TypeOfCoach,

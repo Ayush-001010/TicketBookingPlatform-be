@@ -112,20 +112,6 @@ export const addNewTrain = async (req: Request, res: Response) => {
     return res.send({ success: false });
   }
 };
-const timeChecking = (time1: string, time2: string) => {
-  const arr1 = time1.split(":");
-  const arr2 = time2.split(":");
-  console.log("Time 1", time1, "  Time 2 ", time2);
-  if (Number(arr1[0]) < Number(arr2[0])) {
-    return true;
-  } else if (Number(arr1[0]) === Number(arr2[0])) {
-    if (Number(arr1[1]) <= Number(arr2[1])) {
-      console.log("True");
-      return true;
-    }
-  }
-  return false;
-};
 export const getTrains = async (req: Request, res: Response) => {
   try {
     let {
@@ -135,37 +121,37 @@ export const getTrains = async (req: Request, res: Response) => {
       DepartureTime,
       DestinationTime,
     } = req.body;
-    if (typeof JourneyDate === "string")
+    let JourneyTime = JourneyDate;
+    if (typeof JourneyDate === "string"){
       JourneyDate = new Date(JourneyDate).getDay();
-    const departureTrain = await model.TrainJourney.findAll({
+      JourneyTime = new Date(JourneyTime);
+    }
+    const trainData1 = await model.TrainJourney.findAll({
       where: {
         PlaceName: DepartureStation,
       },
       attributes: ["TrainCode", "Time"],
-    });
-    const departureTrainCodeArr = departureTrain
-      .filter((ele: any) => {
-        return timeChecking(ele.Time, DepartureTime);
-      })
-      .map((ele: any) => ele.TrainCode);
-    console.log(departureTrainCodeArr);
-    const distinationStationArr = await model.TrainJourney.findAll({
+    })
+    const trainData2 = await model.TrainJourney.findAll({
       where: {
-        [Op.and]: {
-          TrainCode: {
-            [Op.in]: departureTrainCodeArr,
-          },
-          PlaceName: DestinationStation,
-        },
+        PlaceName: DestinationStation,
       },
       attributes: ["TrainCode", "Time"],
-    });
-    // console.log(departureTrainCodeArr);
-    const destinationTrainCodeArr = distinationStationArr
-      .filter((ele: any) => {
-        return timeChecking(ele.Time, DestinationTime);
-      })
-      .map((ele: any) => ele.TrainCode);
+    })
+    const commonTrains: Array<{ TrainCode: string, DepartureTime: string, DestinationTime: string }> = trainData2.map((ele1: any) => {
+      const item = ele1.dataValues;
+      console.log("Item ", item);
+      const match = trainData1.find((ele: any) => {
+        return ele.dataValues.TrainCode === item.TrainCode
+      });
+      if (match) {
+        return {
+          TrainCode: item.TrainCode,
+          DepartureTime: match.Time,
+          DestinationTime: item.Time
+        }
+      }
+    })
     const weekdays = [
       "Sunday",
       "Monday",
@@ -176,32 +162,52 @@ export const getTrains = async (req: Request, res: Response) => {
       "Saturday",
     ];
     const JourneyDay = weekdays[JourneyDate];
-    const trainData = [];
-    for (const currTrainCode of destinationTrainCodeArr) {
-      const trainDetails = await model.TrainDetails.findAll({
+    const trainDetails: any = [];
+    if (DepartureTime === null || DestinationTime === null) {
+      for (const trainItem of commonTrains) {
+        const trainData = await model.TrainDetails.findAll({
+          where: {
+            RunningDay: {
+              [Op.like]: `%${JourneyDay}%`,
+            },
+            TrainCode: trainItem.TrainCode,
+          },
+        });
+        console.log("Train Data ", trainData);
+        const response = await getTotalJourneyTime({trainCode : trainItem.TrainCode , departureStation : DepartureStation , destinationStation : DestinationStation , JourneyDate : JourneyTime});
+        trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime , ...response });
+      }
+      return res.send({ success: true, data: trainDetails });
+    }
+    const filteredTrainsAccordingToTime = commonTrains.filter(item => {
+      const departureTrainHr = Number(item.DepartureTime.split(":")[0]);
+      const departureTrainMin = Number(item.DepartureTime.split(":")[1]);
+      const destinationTrainHr = Number(item.DestinationTime.split(":")[0]);
+      const destinationTrainMin = Number(item.DestinationTime.split(":")[1]);
+      const departureTimeHr = Number(DepartureTime.split(":")[0]);
+      const departureTimeMin = Number(DepartureTime.split(":")[1]);
+      const destinationTimeHr = Number(DestinationTime.split(":")[0]);
+      const destinationTimeMin = Number(DestinationTime.split(":")[1]);
+
+      if (((departureTimeHr < departureTrainHr) || (departureTimeHr == departureTrainHr && departureTimeMin <= departureTrainMin)) && ((destinationTimeHr > destinationTrainHr) || (destinationTimeHr === destinationTrainHr && destinationTimeMin >= destinationTrainMin)))
+        return true;
+      return false;
+    })
+    for (const trainItem of filteredTrainsAccordingToTime) {
+      const trainData = await model.TrainDetails.findAll({
         where: {
           RunningDay: {
             [Op.like]: `%${JourneyDay}%`,
           },
-          TrainCode: currTrainCode,
+          TrainCode: trainItem.TrainCode,
         },
       });
-      if (trainDetails.length > 0) {
-        const leavingTime = departureTrain
-          .filter((ele: any) => {
-            return ele.TrainCode === currTrainCode;
-          })
-          .map((ele: any) => ele.Time)[0];
-        const destinationTime = distinationStationArr
-          .filter((ele: any) => {
-            return ele.TrainCode === currTrainCode;
-          })
-          .map((ele: any) => ele.Time)[0];
-        const details = trainDetails[0];
-        trainData.push({ ...details.dataValues, leavingTime, destinationTime });
-      }
+      console.log("Train Data ", trainData);
+      if (trainData.length === 0) continue;
+      const response = await getTotalJourneyTime({trainCode : trainItem.TrainCode , departureStation : DepartureStation , destinationStation : DestinationStation , JourneyDate : JourneyTime});
+      trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime ,  ...response });
     }
-    return res.send({ success: true, data: trainData });
+    return res.send({ success: true, data: trainDetails });
   } catch (error) {
     console.log("Error  ", error);
     return { success: false, msg: "Some thing Went Wrong!!!" };
@@ -212,15 +218,11 @@ export const getTrainFilterOption = async (req: Request, res: Response) => {
     const typeOfTrainData = await model.TypeOfTrain.findAll({
       attributes: ["TrainType"],
     });
-    const trainFacilites = await model.TrainFacilites.findAll({
-      attributes: ["FacilitesName"],
-    });
 
     return res.send({
       success: true,
       data: {
-        TypeOfTrainData: typeOfTrainData,
-        TrainFacilites: trainFacilites,
+        TypeOfTrainData: typeOfTrainData
       },
     });
   } catch (error) {
@@ -321,6 +323,14 @@ export const getPriceOfTrainSeats = async (req: Request, res: Response) => {
         })
       )[0].dataValues.PerKmPrice
     );
+    console.log(
+      "Departure Train Distance ",
+      departureTrainDistance,
+      " Destination Train Distance ",
+      destinationTrainDistance,
+      " Seat Per Km Price ",
+      seatPerKmPrice
+    );
     const price =
       (destinationTrainDistance - departureTrainDistance) * seatPerKmPrice;
     let answer = 0;
@@ -354,3 +364,98 @@ export const checkingTrainCodeExistOrNot = async (
     return res.send({ success: false });
   }
 };
+const getTotalJourneyTime = async (obj : any) => {
+  try {
+    const { trainCode, departureStation, destinationStation, JourneyDate } = obj;
+    const data = await model.TrainJourney.findAll({ where: { TrainCode: trainCode } });
+
+    let index = 0;
+    for (const item of data) {
+      if (item.dataValues.PlaceName === departureStation) break;
+      index++;
+    }
+
+    let totalTime = 0;
+    let prevHr = Number(data[index].dataValues.Time.split(":")[0]);
+    let prevMin = Number(data[index].dataValues.Time.split(":")[1]);
+    let endDate = new Date(JourneyDate);
+
+    for (let i = index; i < data.length; i++) {
+      let currHr = Number(data[i].dataValues.Time.split(":")[0]);
+      let currMin = Number(data[i].dataValues.Time.split(":")[1]);
+
+      // Handle midnight transition
+      if (currHr < prevHr) {
+        currHr += 24; // Adjust for next day transition
+        endDate.setDate(endDate.getDate() + 1); // Increment the day
+      }
+
+      const timeTakeToReachAnotherStation = (currHr - prevHr) * 60 + (currMin - prevMin);
+      totalTime += timeTakeToReachAnotherStation;
+      prevHr = currHr % 24;  // Reset hour for next calculation
+      prevMin = currMin;
+
+      if (data[i].dataValues.PlaceName === destinationStation) break;
+    }
+
+    const totalHr = Math.floor(totalTime / 60);
+    const totalMin = totalTime % 60;
+    let startDate = new Date(JourneyDate);
+
+    return { StartDate: startDate, TotalJourneyTime: `${totalHr} hr ${totalMin} min`, EndDate: endDate };
+
+  } catch (error) {
+    console.log("Error", error);
+    return { JourneyDate: new Date(), TotalJourneyTime: "0 hr 0 min", EndDate: new Date() };
+  }
+};
+export const getParticularTrainCoachDetails = async (req: Request, res: Response) => {
+  try {
+    const { trainCode } = req.body;
+    const data = await model.TrainDetails.findAll({
+      where: {
+        TrainCode: trainCode,
+      },
+    });
+    return res.send({ success: true, data: data[0].dataValues.TypeOfCoachs.split("|") });
+  } catch (error) {
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+};
+export const getPriceOfTrainSeat = async ( req : Request , res : Response) => {
+  try{
+    const { trainCode , departureStation , destinationStation  } = req.body;
+
+    const distanceOfDepartureStation = ( await model.TrainJourney.findAll({
+      where : {
+        TrainCode : trainCode,
+        PlaceName : departureStation
+      }
+    }))[0].dataValues.Distance;
+    const distanceOfDestinationStation = ( await model.TrainJourney.findAll({
+      where : {
+        TrainCode : trainCode,
+        PlaceName : destinationStation
+      }
+    }))[0].dataValues.Distance;
+    console.log("Distance of Departure Station ", distanceOfDepartureStation, " Distance of Destination Station ", distanceOfDestinationStation);
+    const prices = await model.TrainCoach.findAll({
+      where : {
+        TrainCode : trainCode
+      }
+    });
+    let opt : Record<string, number> = {};
+    for(const data of prices) {
+      console.log("Data ", data.dataValues);
+      const  item  = data.dataValues;
+      const perKmPrice = Number(item.PerKmPrice);
+      const totalPrice = (distanceOfDestinationStation - distanceOfDepartureStation) * perKmPrice;
+      opt[item.CoachName] = totalPrice;
+    }
+    return res.send({ success: true, data: opt });
+  } catch(error){
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+}

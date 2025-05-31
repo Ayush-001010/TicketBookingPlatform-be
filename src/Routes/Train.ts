@@ -2,6 +2,8 @@ import {
   addNewTrain,
   checkingTrainCodeExistOrNot,
   getMasterDetails,
+  getParticularTrainCoachDetails,
+  getPriceOfTrainSeat,
   getPriceOfTrainSeats,
   getTrainFilterOption,
   getTrainOptions,
@@ -19,5 +21,7 @@ route.post("/getTrains",getTrains);
 route.post("/filterOption",getTrainFilterOption);
 route.post("/getPrice",getPriceOfTrainSeats);
 route.post("/checkTrainCodeExistOrNot", checkingTrainCodeExistOrNot);
+route.post("/getParticularTrainCoachDetails" , getParticularTrainCoachDetails);
+route.post("/getPriceOfTrainSeat" , getPriceOfTrainSeat);
 
 export default route;

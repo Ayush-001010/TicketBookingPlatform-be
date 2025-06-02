@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import model from "../../Model/model";
 import { ITrainDetails } from "../../Interface/CommonInterface";
 import { Op, where } from "sequelize";
+const stripe = require("stripe")("");
 
 export const getTrainOptions = async (req: Request, res: Response) => {
   try {
@@ -27,7 +28,6 @@ export const getTrainOptions = async (req: Request, res: Response) => {
     return res.send({ success: false, error: "Something Went Wrong" });
   }
 };
-
 export const getMasterDetails = async (req: Request, res: Response) => {
   try {
     const { tableName } = req.body;
@@ -38,7 +38,6 @@ export const getMasterDetails = async (req: Request, res: Response) => {
     return res.send({ success: false });
   }
 };
-
 export const addNewTrain = async (req: Request, res: Response) => {
   try {
     const {
@@ -122,7 +121,7 @@ export const getTrains = async (req: Request, res: Response) => {
       DestinationTime,
     } = req.body;
     let JourneyTime = JourneyDate;
-    if (typeof JourneyDate === "string"){
+    if (typeof JourneyDate === "string") {
       JourneyDate = new Date(JourneyDate).getDay();
       JourneyTime = new Date(JourneyTime);
     }
@@ -174,8 +173,8 @@ export const getTrains = async (req: Request, res: Response) => {
           },
         });
         console.log("Train Data ", trainData);
-        const response = await getTotalJourneyTime({trainCode : trainItem.TrainCode , departureStation : DepartureStation , destinationStation : DestinationStation , JourneyDate : JourneyTime});
-        trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime , ...response });
+        const response = await getTotalJourneyTime({ trainCode: trainItem.TrainCode, departureStation: DepartureStation, destinationStation: DestinationStation, JourneyDate: JourneyTime });
+        trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime, ...response });
       }
       return res.send({ success: true, data: trainDetails });
     }
@@ -204,8 +203,8 @@ export const getTrains = async (req: Request, res: Response) => {
       });
       console.log("Train Data ", trainData);
       if (trainData.length === 0) continue;
-      const response = await getTotalJourneyTime({trainCode : trainItem.TrainCode , departureStation : DepartureStation , destinationStation : DestinationStation , JourneyDate : JourneyTime});
-      trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime ,  ...response });
+      const response = await getTotalJourneyTime({ trainCode: trainItem.TrainCode, departureStation: DepartureStation, destinationStation: DestinationStation, JourneyDate: JourneyTime });
+      trainDetails.push({ ...trainData[0].dataValues, "DepartureTime": trainItem.DepartureTime, "DestinationTime": trainItem.DestinationTime, ...response });
     }
     return res.send({ success: true, data: trainDetails });
   } catch (error) {
@@ -364,7 +363,7 @@ export const checkingTrainCodeExistOrNot = async (
     return res.send({ success: false });
   }
 };
-const getTotalJourneyTime = async (obj : any) => {
+const getTotalJourneyTime = async (obj: any) => {
   try {
     const { trainCode, departureStation, destinationStation, JourneyDate } = obj;
     const data = await model.TrainJourney.findAll({ where: { TrainCode: trainCode } });
@@ -423,38 +422,219 @@ export const getParticularTrainCoachDetails = async (req: Request, res: Response
     return res.send({ success: false });
   }
 };
-export const getPriceOfTrainSeat = async ( req : Request , res : Response) => {
-  try{
-    const { trainCode , departureStation , destinationStation  } = req.body;
+export const getPriceOfTrainSeat = async (req: Request, res: Response) => {
+  try {
+    const { trainCode, departureStation, destinationStation } = req.body;
 
-    const distanceOfDepartureStation = ( await model.TrainJourney.findAll({
-      where : {
-        TrainCode : trainCode,
-        PlaceName : departureStation
+    const distanceOfDepartureStation = (await model.TrainJourney.findAll({
+      where: {
+        TrainCode: trainCode,
+        PlaceName: departureStation
       }
     }))[0].dataValues.Distance;
-    const distanceOfDestinationStation = ( await model.TrainJourney.findAll({
-      where : {
-        TrainCode : trainCode,
-        PlaceName : destinationStation
+    const distanceOfDestinationStation = (await model.TrainJourney.findAll({
+      where: {
+        TrainCode: trainCode,
+        PlaceName: destinationStation
       }
     }))[0].dataValues.Distance;
     console.log("Distance of Departure Station ", distanceOfDepartureStation, " Distance of Destination Station ", distanceOfDestinationStation);
     const prices = await model.TrainCoach.findAll({
-      where : {
-        TrainCode : trainCode
+      where: {
+        TrainCode: trainCode
       }
     });
-    let opt : Record<string, number> = {};
-    for(const data of prices) {
+    let opt: Record<string, number> = {};
+    for (const data of prices) {
       console.log("Data ", data.dataValues);
-      const  item  = data.dataValues;
+      const item = data.dataValues;
       const perKmPrice = Number(item.PerKmPrice);
       const totalPrice = (distanceOfDestinationStation - distanceOfDepartureStation) * perKmPrice;
       opt[item.CoachName] = totalPrice;
     }
     return res.send({ success: true, data: opt });
-  } catch(error){
+  } catch (error) {
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+};
+export const makePayment = async (req: Request, res: Response) => {
+  try {
+    const data = [{
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: "Testing"
+        },
+        unit_amount: 100
+      },
+      quantity: 1
+    }];
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: data,
+      mode: "payment",
+      success_url: "http://localhost:3000/success",
+      cancel_url: "http://localhost:3000/"
+    });
+    console.log("Session ", session);
+    return res.send({ success: true, data: session });
+  } catch (error) {
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+};
+export const bookingTicket = async (req: Request, res: Response) => {
+  try {
+    const { data } = req.body;
+    console.log("data ",data);
+    const passengerDepartureDistance = (await model.TrainJourney.findAll({
+      where: {
+        TrainCode: data[0].trainCode,
+        PlaceName: data[0].departureStation
+      }
+    }))[0].dataValues.Distance;
+    const passengerDestinationDistance = (await model.TrainJourney.findAll({
+      where: {
+        TrainCode: data[0].trainCode,
+        PlaceName: data[0].destinationStation
+      }
+    }))[0].dataValues.Distance;
+    console.log("Passenger Departure Distance   ", passengerDepartureDistance, "  Passenger Destination Station ", passengerDestinationDistance);
+
+    const passengerDetailsAccordingCoachType: Map<string, any> = new Map();
+
+    // Data set according to coach type.
+    data.forEach((item: any) => {
+      console.log("passengerCoachType ",item.passengerCoachType);
+      if (!passengerDetailsAccordingCoachType.has(item.passengerCoachType as string)) {
+        passengerDetailsAccordingCoachType.set(item.passengerCoachType as string, []);
+      }
+      passengerDetailsAccordingCoachType.get(item.passengerCoachType as string)?.push(item);
+    });
+
+    // Coach Type Details.
+    const coachTypeDetails = await model.TrainCoach.findAll({
+      where: {
+        TrainCode: data[0].trainCode
+      }
+    });
+    console.log("Coach Type Details ", coachTypeDetails);
+
+    const coachSeatDetails: Map<string, Array<Array<boolean>>> = new Map();
+    for (const coachDetails of coachTypeDetails) {
+      let { CoachName, TotalCabin, PerCabinSheats } = coachDetails.dataValues;
+      console.log("CoachName  ", CoachName, "   Total Cabin ", TotalCabin, "    Per Cabin Seat  ", PerCabinSheats);
+
+      if (!coachSeatDetails.has(CoachName)) {
+        coachSeatDetails.set(CoachName, []);
+      }
+      const alreadySeatBook = await model.Ticket.findAll({
+        where: {
+          TrainCode: data[0].trainCode,
+          JourneyDate: data[0].journeyStartDate,
+          CoachType: CoachName,
+          [Op.and]: {
+            DestinationDistance: {
+              [Op.gt]: passengerDepartureDistance
+            },
+            DepartureDistance: {
+              [Op.lt]: passengerDestinationDistance
+            }
+          }
+        }
+      });
+      console.log("Already Seat Book  ", alreadySeatBook);
+
+      while (TotalCabin > 0) {
+        const seatArray: Array<boolean> = [];
+        for (let i = 0; i < PerCabinSheats; i++) {
+          seatArray.push(false);
+        }
+        coachSeatDetails.get(CoachName)?.push(seatArray);
+        TotalCabin--;
+      }
+      // Details of seat which already books
+      for (const seatDetails of alreadySeatBook) {
+        const { CoachNumber, SeatNumber } = seatDetails.dataValues;
+        console.log("Coach Number ", CoachNumber, " Seat Number ", SeatNumber);
+
+        if (coachSeatDetails.get(CoachName)) {
+          coachSeatDetails.get(CoachName)![CoachNumber][SeatNumber] = true;
+        }
+      }
+    }
+
+    console.log("SEATS  ");
+    // Seat Booking
+    for (const [key, value] of passengerDetailsAccordingCoachType) {
+      let noOfPassengers = passengerDetailsAccordingCoachType.get(key).length;
+      console.log("No Of Passengers   ", noOfPassengers, " Key ", key, " value ", value);
+
+      while (noOfPassengers > 0) {
+        let valueIndex = 0;
+        let maxNoSeatsAvaliable = 0;
+        let startNumber = 0;
+        let endNumber = 0;
+        let coachNumber = 0;
+        let noSeatsAvaliableContinuesly = 0;
+        let tempCoachNumber = 0;
+        for (const coachs of coachSeatDetails.get(key) as []) {
+          let start = 0, index = 0;
+          tempCoachNumber += 1;
+          for (const coach of coachs as []) {
+            index += 1;
+            if (!coach) {
+              if (noSeatsAvaliableContinuesly === 0) start = index;
+              noSeatsAvaliableContinuesly++;
+            } else {
+              noSeatsAvaliableContinuesly = 0;
+            }
+
+            if (maxNoSeatsAvaliable < noSeatsAvaliableContinuesly) {
+              startNumber = start;
+              coachNumber = tempCoachNumber;
+              endNumber = index;
+            }
+          }
+        }
+        while (startNumber <= endNumber && noOfPassengers > 0) {
+          console.log("Insert Value ",value[valueIndex])
+          await model.Ticket.create({
+            TrainCode: value[valueIndex].trainCode,
+            TrainName: value[valueIndex].trainName,
+            JourneyDate: value[valueIndex].journeyStartDate,
+            CoachType: key,
+            CoachNumber: coachNumber,
+            SeatNumber: startNumber,
+            PassengerName: value[valueIndex].passengerName,
+            PassengerAge: value[valueIndex].passengerAge,
+            PassengerPhoneNumber: value[valueIndex].passengerPhone,
+            PassengerCategory: value[valueIndex].passengerCategory,
+            PassengerGender: value[valueIndex].passengerGender,
+            Price: value[valueIndex].price,
+            DepartureStation: value[valueIndex].departureStation,
+            DestinationStation: value[valueIndex].destinationStation,
+            DepartureTime: value[valueIndex].departureTime,
+            DestinationTime: value[valueIndex].destinationTime,
+            isBooked: false
+          })
+          valueIndex+=1;
+          console.log("Insert Operation Done!!  Coach Number  ",coachNumber ,"  StartNumber ",startNumber);
+          if (coachSeatDetails.has(key)) {
+            if (coachSeatDetails.get(key)) {
+              console.log("Coach Number Size  ",coachSeatDetails.get(key));
+              coachSeatDetails.get(key)![coachNumber-1][startNumber] = true;
+            }
+          }
+          startNumber++;
+          noOfPassengers--;
+        }
+
+      }
+    }
+    return res.send({ success: true, data: "Under Construction" });
+  } catch (error) {
     console.log("Error  ", error);
     return res.send({ success: false });
   }

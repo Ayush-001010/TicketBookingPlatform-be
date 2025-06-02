@@ -10,6 +10,7 @@ import TrainFacilites from "./TrainFacilites";
 import Availability from "./Train/Availability";
 import Booking from "./Train/Booking";
 import State from "./Train/State";
+import Ticket from "./Train/Ticket";
 
 const model: Record<string, any> = {
   userMasterTable: userMasterTable,
@@ -23,7 +24,8 @@ const model: Record<string, any> = {
   TrainCoach: TrainCoach,
   TrainFacilites : TrainFacilites,
   Availability : Availability,
-  Booking : Booking
+  Booking : Booking,
+  Ticket : Ticket
 };
 
 export default model;

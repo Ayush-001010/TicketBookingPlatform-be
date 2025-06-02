@@ -1,5 +1,6 @@
 import {
   addNewTrain,
+  bookingTicket,
   checkingTrainCodeExistOrNot,
   getMasterDetails,
   getParticularTrainCoachDetails,
@@ -8,6 +9,7 @@ import {
   getTrainFilterOption,
   getTrainOptions,
   getTrains,
+  makePayment,
 } from "../Controller/Master/TrainDetails";
 
 const express = require("express");
@@ -23,5 +25,7 @@ route.post("/getPrice",getPriceOfTrainSeats);
 route.post("/checkTrainCodeExistOrNot", checkingTrainCodeExistOrNot);
 route.post("/getParticularTrainCoachDetails" , getParticularTrainCoachDetails);
 route.post("/getPriceOfTrainSeat" , getPriceOfTrainSeat);
+route.post("/makePayment" , makePayment);
+route.post("/bookTrainSeat",bookingTicket);
 
 export default route;

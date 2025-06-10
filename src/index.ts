@@ -3,6 +3,7 @@ import express from "express";
 import sequelize from "./Model/dbConfig";
 import authenticationRoutes from "./Routes/authentication";
 import railwayStationRoutes from "./Routes/RailwayStation";
+import passengerDetailsRoutes from "./Routes/PassengerDetails";
 import trainRoutes from "./Routes/Train";
 import bodyParser from "body-parser";
 import cors from "cors";
@@ -46,6 +47,7 @@ app.get("/", (req, res) => {
 app.use("/authentication", authenticationRoutes);
 app.use("/stations", railwayStationRoutes);
 app.use("/train", trainRoutes);
+app.use("/passengerDetails", passengerDetailsRoutes);
 
 server.listen(port, () => {
   sequelize

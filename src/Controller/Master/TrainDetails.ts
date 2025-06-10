@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import model from "../../Model/model";
 import { ITrainDetails } from "../../Interface/CommonInterface";
-import { Op, where } from "sequelize";
-const stripe = require("stripe")("");
+import { Op } from "sequelize";
+const stripe = require("stripe")();
+import amqplib from "amqplib";
 
 export const getTrainOptions = async (req: Request, res: Response) => {
   try {
@@ -236,46 +237,28 @@ export const getAvailabilityOfSeats = async (
   DestinationStation: string
 ) => {
   try {
-    console.log(
-      "Train  Code  ",
-      trainCode,
-      DepartureStation,
-      DestinationStation
-    );
-    const response1 = await model.Availability.findAll({
+    const coachesDetails = await model.TrainCoach.findAll({
       where: {
-        TrainCode: trainCode,
-        // JourneyDate: journeyDate,
-        PlaceName: DepartureStation,
-      },
-    });
-    // console.log("Response1 ",response1);
-    const response2 = await model.Availability.findAll({
-      where: {
-        TrainCode: trainCode,
-        // JourneyDate: journeyDate,
-        PlaceName: DestinationStation,
-      },
-    });
-    console.log("Response 1 ", response1[0].dataValues);
-    let response: Array<Record<string, []>> = [];
-    for (let i = 0; i < response1.length; i++) {
-      let obj = {};
-      for (const currKey in response1[i].dataValues) {
-        obj = {
-          ...obj,
-          [currKey]:
-            currKey === "Seats"
-              ? Number(response1[i].dataValues[currKey]) >
-                Number(response2[i].dataValues[currKey])
-                ? response2[i].dataValues[currKey]
-                : response1[i].dataValues[currKey]
-              : response1[i].dataValues[currKey],
-        };
+        TrainCode: trainCode
       }
-      response.push(obj);
+    });
+    console.log("Coaches Details", coachesDetails);
+    const data: Array<Record<string, number>> = [];
+    for (const item of coachesDetails) {
+      const { CoachName, TotalCabin, PerCabinSheats } = item.dataValues;
+      let totalSeats = TotalCabin * PerCabinSheats;
+      const bookedSeats = await model.Ticket.findAll({
+        where: {
+          TrainCode: trainCode,
+          CoachType: CoachName,
+          JourneyDate: journeyDate
+        }
+      });
+      totalSeats = totalSeats - bookedSeats.length;
+      data.push({ CoachName, TotalAvalibleSeats: totalSeats });
     }
-    return response;
+    console.log("Data ", data);
+    return data;
   } catch (error) {
     return [];
   }
@@ -285,58 +268,33 @@ export const getPriceOfTrainSeats = async (req: Request, res: Response) => {
     const {
       DepartureStation,
       DestinationStation,
-      Adults,
-      Kids,
-      seniorCitizen,
       trainCode,
       coachType,
     } = req.body;
     console.log(DepartureStation);
-    const departureTrainDistance = Number(
-      (
-        await model.TrainJourney.findAll({
-          where: {
-            PlaceName: DepartureStation,
-            TrainCode: trainCode,
-          },
-        })
-      )[0].dataValues.Distance
-    );
-    const destinationTrainDistance = Number(
-      (
-        await model.TrainJourney.findAll({
-          where: {
-            PlaceName: DestinationStation,
-            TrainCode: trainCode,
-          },
-        })
-      )[0].dataValues.Distance
-    );
-    const seatPerKmPrice = Number(
-      (
-        await model.TrainCoach.findAll({
-          where: {
-            TrainCode: trainCode,
-            CoachName: coachType,
-          },
-        })
-      )[0].dataValues.PerKmPrice
-    );
-    console.log(
-      "Departure Train Distance ",
-      departureTrainDistance,
-      " Destination Train Distance ",
-      destinationTrainDistance,
-      " Seat Per Km Price ",
-      seatPerKmPrice
-    );
-    const price =
-      (destinationTrainDistance - departureTrainDistance) * seatPerKmPrice;
-    let answer = 0;
-    answer = answer + Adults * price;
-    answer = answer + Kids * (price - (price * 10) / 100);
-    answer = answer + seniorCitizen * (price - (price * 20) / 100);
-    return res.send({ success: true, data: answer.toFixed(2) });
+    const trainCoachDetails = await model.TrainCoach.findAll({
+      where: {
+        TrainCode: trainCode,
+        CoachName: coachType
+      }
+    });
+
+    const departureStationDetails = await model.TrainJourney.findAll({
+      where: {
+        PlaceName: DepartureStation,
+        TrainCode: trainCode
+      }
+    });
+
+    const destinationStationDetails = await model.TrainJourney.findAll({
+      where: {
+        PlaceName: DestinationStation,
+        TrainCode: trainCode
+      }
+    });
+    console.log(trainCoachDetails[0].dataValues["PerKmPrice"], " ", destinationStationDetails[0].dataValues["Distance"], " ", departureStationDetails[0].dataValues["Distance"]);
+    const data = trainCoachDetails[0].dataValues["PerKmPrice"] * (destinationStationDetails[0].dataValues["Distance"] - departureStationDetails[0].dataValues["Distance"]);
+    return res.send({ success: true, data: data });
   } catch (error) {
     console.log("Error  ", error);
     return res.send({ success: false });
@@ -460,13 +418,19 @@ export const getPriceOfTrainSeat = async (req: Request, res: Response) => {
 };
 export const makePayment = async (req: Request, res: Response) => {
   try {
+    console.log(req.body);
+    let price: number = 0;
+    for (const item of req.body) {
+      price += item.price;
+    }
+    console.log("Price ", price);
     const data = [{
       price_data: {
         currency: "usd",
         product_data: {
-          name: "Testing"
+          name: "Train Ticket"
         },
-        unit_amount: 100
+        unit_amount: Number(price).toFixed(0)
       },
       quantity: 1
     }];
@@ -474,7 +438,7 @@ export const makePayment = async (req: Request, res: Response) => {
       payment_method_types: ["card"],
       line_items: data,
       mode: "payment",
-      success_url: "http://localhost:3000/success",
+      success_url: "http://localhost:3000/#/success",
       cancel_url: "http://localhost:3000/"
     });
     console.log("Session ", session);
@@ -487,7 +451,7 @@ export const makePayment = async (req: Request, res: Response) => {
 export const bookingTicket = async (req: Request, res: Response) => {
   try {
     const { data } = req.body;
-    console.log("data ",data);
+    console.log("data ", data);
     const passengerDepartureDistance = (await model.TrainJourney.findAll({
       where: {
         TrainCode: data[0].trainCode,
@@ -506,7 +470,7 @@ export const bookingTicket = async (req: Request, res: Response) => {
 
     // Data set according to coach type.
     data.forEach((item: any) => {
-      console.log("passengerCoachType ",item.passengerCoachType);
+      console.log("passengerCoachType ", item.passengerCoachType);
       if (!passengerDetailsAccordingCoachType.has(item.passengerCoachType as string)) {
         passengerDetailsAccordingCoachType.set(item.passengerCoachType as string, []);
       }
@@ -599,7 +563,7 @@ export const bookingTicket = async (req: Request, res: Response) => {
           }
         }
         while (startNumber <= endNumber && noOfPassengers > 0) {
-          console.log("Insert Value ",value[valueIndex])
+          console.log("Insert Value ", value[valueIndex])
           await model.Ticket.create({
             TrainCode: value[valueIndex].trainCode,
             TrainName: value[valueIndex].trainName,
@@ -619,12 +583,12 @@ export const bookingTicket = async (req: Request, res: Response) => {
             DestinationTime: value[valueIndex].destinationTime,
             isBooked: false
           })
-          valueIndex+=1;
-          console.log("Insert Operation Done!!  Coach Number  ",coachNumber ,"  StartNumber ",startNumber);
+          valueIndex += 1;
+          console.log("Insert Operation Done!!  Coach Number  ", coachNumber, "  StartNumber ", startNumber);
           if (coachSeatDetails.has(key)) {
             if (coachSeatDetails.get(key)) {
-              console.log("Coach Number Size  ",coachSeatDetails.get(key));
-              coachSeatDetails.get(key)![coachNumber-1][startNumber] = true;
+              console.log("Coach Number Size  ", coachSeatDetails.get(key));
+              coachSeatDetails.get(key)![coachNumber - 1][startNumber] = true;
             }
           }
           startNumber++;
@@ -634,6 +598,29 @@ export const bookingTicket = async (req: Request, res: Response) => {
       }
     }
     return res.send({ success: true, data: "Under Construction" });
+  } catch (error) {
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+};
+export const tatkalBooking = async (req: Request, res: Response) => {
+  try {
+    const { data } = req.body;
+    const connection = await amqplib.connect("amqp://localhost");
+    const channel = await connection.createChannel();
+    const exchangeName = "train_ticket_exchange";
+    const routingKey = "train_seat_booking";
+
+    await channel.assertExchange(exchangeName, "direct", { durable: false });
+    await channel.assertQueue("seat_booking", { durable: false });
+
+    await channel.bindQueue("seat_booking", exchangeName, routingKey);
+
+    channel.publish(exchangeName , routingKey, Buffer.from(JSON.stringify(data)));
+
+    console.log("Message Enter To Message Queue");
+    connection.close();
+    return res.send({success : true});
   } catch (error) {
     console.log("Error  ", error);
     return res.send({ success: false });

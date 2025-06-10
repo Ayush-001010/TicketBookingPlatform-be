@@ -10,6 +10,7 @@ import {
   getTrainOptions,
   getTrains,
   makePayment,
+  tatkalBooking,
 } from "../Controller/Master/TrainDetails";
 
 const express = require("express");
@@ -27,5 +28,6 @@ route.post("/getParticularTrainCoachDetails" , getParticularTrainCoachDetails);
 route.post("/getPriceOfTrainSeat" , getPriceOfTrainSeat);
 route.post("/makePayment" , makePayment);
 route.post("/bookTrainSeat",bookingTicket);
+route.post("/tatkalBooking" , tatkalBooking);
 
 export default route;

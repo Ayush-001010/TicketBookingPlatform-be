@@ -8,7 +8,6 @@ const userMasterTable = sequelize.define("UserMasterTable", {
     autoIncrement:true
   },
   UserEmail: DataTypes.STRING,
-  UserName: DataTypes.STRING,
   IsAdmin : DataTypes.BOOLEAN,
   UserPassword : DataTypes.STRING
 });

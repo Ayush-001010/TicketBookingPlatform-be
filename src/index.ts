@@ -34,7 +34,6 @@ io.on("connection", (client) => {
   });
 });
 
-
 app.use(
   cors({
     credentials: true,

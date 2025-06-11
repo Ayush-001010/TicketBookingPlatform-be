@@ -2,7 +2,9 @@ import { Request, Response } from "express";
 import model from "../../Model/model";
 import { ITrainDetails } from "../../Interface/CommonInterface";
 import { Op } from "sequelize";
-const stripe = require("stripe")();
+import * as dotenv from 'dotenv';
+dotenv.config();
+const stripe = require("stripe")(process.env.strip_account || "");
 import amqplib from "amqplib";
 
 export const getTrainOptions = async (req: Request, res: Response) => {
@@ -619,10 +621,41 @@ export const tatkalBooking = async (req: Request, res: Response) => {
     channel.publish(exchangeName , routingKey, Buffer.from(JSON.stringify(data)));
 
     console.log("Message Enter To Message Queue");
-    connection.close();
+    setTimeout(()=>{
+      connection.close();
+    },5000)
     return res.send({success : true});
   } catch (error) {
     console.log("Error  ", error);
     return res.send({ success: false });
   }
-}
+};
+export const trainDetailsInPerticularStation = async (req: Request, res: Response) => {
+  try {
+    const { Station } = req.body;
+
+    const data = await model.TrainJourney.findAll({
+      where : {
+        PlaceName : Station
+      }
+    });
+
+    const result : Array<any> = [];
+    for(const item of data){
+      const {TrainCode , Time , TrainStoppageTime} = item.dataValues;
+
+      const val = await model.TrainDetails.findOne({
+        where : {
+          TrainCode : TrainCode
+        }
+      });
+      const { RunningDay , TrainName }= val;
+      result.push({TrainCode , TrainName , RunningDay , Time , TrainStoppageTime});
+    }
+
+    return res.send({success : true , data : result});
+  } catch (error) {
+    console.log("Error  ", error);
+    return res.send({ success: false });
+  }
+};

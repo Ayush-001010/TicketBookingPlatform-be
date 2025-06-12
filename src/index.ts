@@ -1,5 +1,5 @@
 // src/index.ts
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import sequelize from "./Model/dbConfig";
 import authenticationRoutes from "./Routes/authentication";
 import railwayStationRoutes from "./Routes/RailwayStation";
@@ -10,10 +10,13 @@ import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
 import { getAvailabilityOfSeats } from "./Controller/Master/TrainDetails";
+import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const server = http.createServer(app);
 const port = 8000;
+app.use(cookieParser());
 app.use(bodyParser.json());
 
 const io = new Server(server, {
@@ -21,25 +24,44 @@ const io = new Server(server, {
     origin: "*"
   }
 });
+app.use(cors({
+  origin: [/^http:\/\/localhost:3000/, "http://localhost:5000"],
+  credentials: true
+}));
+
+app.use("/", (req: Request, res: Response, next: NextFunction) => {
+  try {
+    console.log(req.cookies, process.env.secretKey);
+    const token = req.cookies.trainCookie;
+    if (req.url.includes("authentication") || req.url.includes("bookTrainSeat") || jwt.verify(token || "", process.env.secretKey || "")) {
+      next();
+    } else {
+      res.send({ success: false });
+    }
+  } catch(error){
+    res.send({success : false});
+  }
+})
 
 io.on("connection", (client) => {
   console.log("Hey I am speaking from client!!");
 
   // Correctly listen for the train-details event within the connection event
-  client.on("train-details",async  (message) => {
+  client.on("train-details", async (message) => {
     console.log("Received train details: ", message);
-    const res = await getAvailabilityOfSeats(message.trainCode,message.journeyDate , message.DepartureStation,message.DestinationStation)
-    console.log("Response ",res);
-    client.emit("train-details-data" , {trainCode : message.trainCode , response : res});
+    const res = await getAvailabilityOfSeats(message.trainCode, message.journeyDate, message.DepartureStation, message.DestinationStation)
+    console.log("Response ", res);
+    client.emit("train-details-data", { trainCode: message.trainCode, response: res });
   });
 });
 
-app.use(
-  cors({
-    credentials: true,
-    origin: "http://localhost:3000",
-  })
-);
+// app.use(
+//   cors({
+//     credentials: true,
+//     origin: "*",
+//   })
+// );
+
 app.get("/", (req, res) => {
   res.send("Hello, TypeScript!");
 });
@@ -53,8 +75,8 @@ server.listen(port, () => {
     .sync()
     .then(() => {
       console.log("Everything working fine!!!");
-    })    .catch((error) => {
-      console.log("Ohh shit something went wrong!!!   ",error);
+    }).catch((error) => {
+      console.log("Ohh shit something went wrong!!!   ", error);
     });
   console.log(`Server is running at http://localhost:${port}`);
 });

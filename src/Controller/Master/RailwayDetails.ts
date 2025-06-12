@@ -4,7 +4,8 @@ import { Op } from "sequelize";
 
 export const getState = async (req: Request, res: Response) => {
   try {
-    const data = await model.State.findAll({});
+    let data = await model.State.findAll();
+    console.log("Data ",data);
     return res.send({ success: true, data: data });
   } catch (error) {
     console.log("Error  ", error);
@@ -83,10 +84,11 @@ export const editStation = async (req: Request, res: Response) => {
 export const getStationCardValues = async (req: Request, res: Response) => {
   try {
     const { StateName } = req.body;
+    console.log(StateName);
     const terminalStation = await model.Places.count({ where: { TypeOfStation: "Terminal", State: StateName } });
     const junctionStation = await model.Places.count({ where: { TypeOfStation: "Junction", State: StateName } });
     const centralStation = await model.Places.count({ where: { TypeOfStation: "Central", State: StateName } });
-    const normalStation = await model.Places.count({ where: { TypeOfStation: "Normal", State: StateName } });
+    const normalStation = await model.Places.count({ where: { TypeOfStation: "Normal Station", State: StateName } });
     const isActiveStation = await model.Places.count({ where: { IsActive: true, State: StateName } });
     const totalStation = await model.Places.count({ where: { State: StateName } });
     return res.send({
@@ -111,7 +113,7 @@ export const searchStation = async (req: Request, res: Response) => {
     const { searchValue, State } = req.body;
     let searchQuery = {};
     searchFields.forEach((item) => {
-      searchQuery = { ...searchQuery, [item]: { [Op.like] : `%${searchValue}%` } };
+      searchQuery = { ...searchQuery, [item]: { [Op.like]: `%${searchValue}%` } };
     })
     const data = await model.Places.findAll({
       where: {

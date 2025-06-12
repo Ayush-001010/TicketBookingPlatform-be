@@ -4,6 +4,7 @@ export interface ITrainStops {
     distance : string;
     price:Record<string , string>;
     TrainStoppageTime : string;
+    perKmPrice:any;
 }
 
 export interface ITrainDetails  {

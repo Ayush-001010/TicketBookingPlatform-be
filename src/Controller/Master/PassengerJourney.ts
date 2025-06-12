@@ -4,10 +4,12 @@ import { Op, Sequelize, where } from "sequelize";
 
 export const cardsData = async (req: Request, res: Response) => {
     try {
+        const { userEmail } = req.body;
         // total Upcoming Journey.
         const totalUpcomingJourney = await model.Ticket.count({
             distinct: true,
-            col: 'JourneyDate'
+            col: 'JourneyDate',
+            userEmail : userEmail
         })
 
         // monthly Upcoming Journey.
@@ -20,7 +22,8 @@ export const cardsData = async (req: Request, res: Response) => {
             where: {
                 journeyDate: {
                     [Op.between]: [startDate, endDate]
-                }
+                },
+                userEmail : userEmail
             }
         });
 
@@ -34,7 +37,8 @@ export const cardsData = async (req: Request, res: Response) => {
             where: {
                 journeyDate: {
                     [Op.between]: [y_startDate, y_endDate]
-                }
+                },
+                userEmail : userEmail
             }
         });
 
@@ -46,7 +50,8 @@ export const cardsData = async (req: Request, res: Response) => {
             where: {
                 journeyDate: {
                     [Op.gt]: today // Filters for upcoming journeys
-                }
+                },
+                userEmail
             },
             group: ['TrainName', 'TrainCode'],
             order: [[Sequelize.fn('COUNT', Sequelize.col('TrainCode')), 'DESC']], // Sorts by most traveled train
@@ -67,7 +72,8 @@ export const cardsData = async (req: Request, res: Response) => {
         const upcomingJourneyDetails = await model.Ticket.findAll({
             where: {
                 JourneyDate: upcomingJourneyDate
-            }
+            },
+            userEmail : userEmail
         })
 
 
@@ -88,6 +94,7 @@ export const cardsData = async (req: Request, res: Response) => {
 
 export const dayByDayJourneyDetails = async (req: Request, res: Response) => {
     try {
+        const { userEmail } = req.body;
         const y_startDate = new Date();
         const y_endDate = new Date(y_startDate.getFullYear() + 1, y_startDate.getMonth(), y_startDate.getDate());
 
@@ -105,7 +112,8 @@ export const dayByDayJourneyDetails = async (req: Request, res: Response) => {
             where: {
                 journeyDate: {
                     [Op.between]: [y_startDate, y_endDate]
-                }
+                },
+                userEmail : userEmail
             }
         });
 
@@ -121,11 +129,13 @@ export const dayByDayJourneyDetails = async (req: Request, res: Response) => {
 
 export const trainJourneyDetails = async (req: Request, res: Response) => {
     try {
+        const { userEmail } = req.body;
         const { trainCode, DepartureStation, DestinationStation } = req.body;
         const trainJourney = await model.TrainJourney.findAll({
             where: {
                 TrainCode: trainCode
-            }
+            },
+            userEmail
         });
         const data = [];
         let isFlag = false;
@@ -152,11 +162,12 @@ export const trainJourneyDetails = async (req: Request, res: Response) => {
 
 export const trainTicketsDetails = async (req: Request, res: Response) => {
     try {
-        const { trainCode, JourneyDate } = req.body;
+        const { trainCode, JourneyDate , userEmail } = req.body;
         const ticket = await model.Ticket.findAll({
             where: {
                 TrainCode: trainCode,
-                JourneyDate: JourneyDate
+                JourneyDate: JourneyDate,
+                userEmail
             }
         });
 

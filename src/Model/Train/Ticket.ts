@@ -25,7 +25,8 @@ const Ticket = sequelize.define('Ticket',{
     DestinationTime : DataTypes.STRING,
     isBooked : DataTypes.BOOLEAN,
     DepartureDistance : DataTypes.DECIMAL,
-    DestinationDistance : DataTypes.DECIMAL
+    DestinationDistance : DataTypes.DECIMAL,
+    userEmail : DataTypes.STRING
 })
 
 export default Ticket;

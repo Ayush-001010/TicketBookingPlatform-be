@@ -101,11 +101,14 @@ export const addNewTrain = async (req: Request, res: Response) => {
       });
     }
     for (const curr of coaches) {
+      const coachNameVal : any = curr.coachType;
+      console.log("Value  ", stops[0].perKmPrice , " Coach Name ",coachNameVal);
       await model.TrainCoach.create({
         TrainCode: TrainCode,
         CoachName: curr.coachType,
         PerCabinSheats: curr.perCabinSeat,
         TotalCabin: curr.totalCabin,
+        PerKmPrice : stops[0].perKmPrice[coachNameVal]
       });
     }
     return res.send({ success: true });
@@ -314,7 +317,7 @@ export const checkingTrainCodeExistOrNot = async (
       },
     });
     if (isExist && isExist.length > 0) {
-      return res.send({ success: false, data: false });
+      return res.send({ success: true, data: false });
     } else {
       return res.send({ success: true, data: true });
     }
@@ -452,8 +455,9 @@ export const makePayment = async (req: Request, res: Response) => {
 };
 export const bookingTicket = async (req: Request, res: Response) => {
   try {
-    const { data } = req.body;
-    console.log("data ", data);
+    const { data  , userEmail } = req.body;
+
+    console.log("data ", data , "User Email ",userEmail);
     const passengerDepartureDistance = (await model.TrainJourney.findAll({
       where: {
         TrainCode: data[0].trainCode,
@@ -466,13 +470,11 @@ export const bookingTicket = async (req: Request, res: Response) => {
         PlaceName: data[0].destinationStation
       }
     }))[0].dataValues.Distance;
-    console.log("Passenger Departure Distance   ", passengerDepartureDistance, "  Passenger Destination Station ", passengerDestinationDistance);
 
     const passengerDetailsAccordingCoachType: Map<string, any> = new Map();
 
     // Data set according to coach type.
     data.forEach((item: any) => {
-      console.log("passengerCoachType ", item.passengerCoachType);
       if (!passengerDetailsAccordingCoachType.has(item.passengerCoachType as string)) {
         passengerDetailsAccordingCoachType.set(item.passengerCoachType as string, []);
       }
@@ -485,7 +487,6 @@ export const bookingTicket = async (req: Request, res: Response) => {
         TrainCode: data[0].trainCode
       }
     });
-    console.log("Coach Type Details ", coachTypeDetails);
 
     const coachSeatDetails: Map<string, Array<Array<boolean>>> = new Map();
     for (const coachDetails of coachTypeDetails) {
@@ -510,7 +511,6 @@ export const bookingTicket = async (req: Request, res: Response) => {
           }
         }
       });
-      console.log("Already Seat Book  ", alreadySeatBook);
 
       while (TotalCabin > 0) {
         const seatArray: Array<boolean> = [];
@@ -523,7 +523,6 @@ export const bookingTicket = async (req: Request, res: Response) => {
       // Details of seat which already books
       for (const seatDetails of alreadySeatBook) {
         const { CoachNumber, SeatNumber } = seatDetails.dataValues;
-        console.log("Coach Number ", CoachNumber, " Seat Number ", SeatNumber);
 
         if (coachSeatDetails.get(CoachName)) {
           coachSeatDetails.get(CoachName)![CoachNumber][SeatNumber] = true;
@@ -531,11 +530,9 @@ export const bookingTicket = async (req: Request, res: Response) => {
       }
     }
 
-    console.log("SEATS  ");
     // Seat Booking
     for (const [key, value] of passengerDetailsAccordingCoachType) {
       let noOfPassengers = passengerDetailsAccordingCoachType.get(key).length;
-      console.log("No Of Passengers   ", noOfPassengers, " Key ", key, " value ", value);
 
       while (noOfPassengers > 0) {
         let valueIndex = 0;
@@ -565,7 +562,6 @@ export const bookingTicket = async (req: Request, res: Response) => {
           }
         }
         while (startNumber <= endNumber && noOfPassengers > 0) {
-          console.log("Insert Value ", value[valueIndex])
           await model.Ticket.create({
             TrainCode: value[valueIndex].trainCode,
             TrainName: value[valueIndex].trainName,
@@ -583,13 +579,12 @@ export const bookingTicket = async (req: Request, res: Response) => {
             DestinationStation: value[valueIndex].destinationStation,
             DepartureTime: value[valueIndex].departureTime,
             DestinationTime: value[valueIndex].destinationTime,
-            isBooked: false
+            isBooked: false,
+            userEmail : userEmail
           })
           valueIndex += 1;
-          console.log("Insert Operation Done!!  Coach Number  ", coachNumber, "  StartNumber ", startNumber);
           if (coachSeatDetails.has(key)) {
             if (coachSeatDetails.get(key)) {
-              console.log("Coach Number Size  ", coachSeatDetails.get(key));
               coachSeatDetails.get(key)![coachNumber - 1][startNumber] = true;
             }
           }
@@ -607,8 +602,9 @@ export const bookingTicket = async (req: Request, res: Response) => {
 };
 export const tatkalBooking = async (req: Request, res: Response) => {
   try {
-    const { data } = req.body;
-    const connection = await amqplib.connect("amqp://localhost");
+    const { data , userEmail } = req.body;
+    console.log(process.env.rabbitmqKey);
+    const connection = await amqplib.connect(process.env.rabbitmqKey || "");
     const channel = await connection.createChannel();
     const exchangeName = "train_ticket_exchange";
     const routingKey = "train_seat_booking";
@@ -618,7 +614,7 @@ export const tatkalBooking = async (req: Request, res: Response) => {
 
     await channel.bindQueue("seat_booking", exchangeName, routingKey);
 
-    channel.publish(exchangeName , routingKey, Buffer.from(JSON.stringify(data)));
+    channel.publish(exchangeName , routingKey, Buffer.from(JSON.stringify({ data , userEmail})));
 
     console.log("Message Enter To Message Queue");
     setTimeout(()=>{

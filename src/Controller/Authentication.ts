@@ -25,10 +25,12 @@ export const signInFunc = async (req: Request, res: Response) => {
     console.log("Token  ", token);
     // res.cookie("trainCookie", token, { httpOnly: true });
     res.cookie("trainCookie", token, {
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === "production", // Only secure in production
-      sameSite: "strict"
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/"
     });
+    
     
 
     console.log("Cookies", req.cookies);

@@ -21,9 +21,15 @@ app.use(bodyParser.json());
 
 const io = new Server(server, {
   cors: {
-    origin: "*"
+    origin: [
+      "https://ticket-booking-platform-fe.vercel.app", // Your frontend domain
+      "http://localhost:3000", // Local development frontend
+      "http://localhost:5000" // Local Node.js backend
+    ],
+    credentials: true
   }
 });
+
 app.use(cors({
   origin: [
     /^https:\/\/ticket-booking-platform-fe\.vercel\.app$/,  // Correct regex format

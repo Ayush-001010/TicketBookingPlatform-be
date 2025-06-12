@@ -585,7 +585,7 @@ export const bookingTicket = async (req: Request, res: Response) => {
           valueIndex += 1;
           if (coachSeatDetails.has(key)) {
             if (coachSeatDetails.get(key)) {
-              coachSeatDetails.get(key)![coachNumber - 1][startNumber] = true;
+              coachSeatDetails.get(key)![coachNumber][startNumber] = true;
             }
           }
           startNumber++;

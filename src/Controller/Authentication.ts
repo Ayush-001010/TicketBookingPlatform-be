@@ -26,10 +26,11 @@ export const signInFunc = async (req: Request, res: Response) => {
     // res.cookie("trainCookie", token, { httpOnly: true });
     res.cookie("trainCookie", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/"
+      secure: true, // Required for HTTPS on Render
+      sameSite: "none", // Needed for cross-origin cookies
+      domain: "ticketbookingplatform-be.onrender.com", // No protocol (https://)
     });
+    
     
     
 

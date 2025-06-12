@@ -25,7 +25,6 @@ export const signInFunc = async (req: Request, res: Response) => {
     console.log("Token  ", token);
     res.cookie("trainCookie", token, { httpOnly: true });
     res.cookie("trainCookie", token, {
-      httpOnly: true,
       secure: true,
       sameSite: "strict",
     });

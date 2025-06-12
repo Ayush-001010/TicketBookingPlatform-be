@@ -19,18 +19,34 @@ const port = 8000;
 app.use(cookieParser());
 app.use(bodyParser.json());
 
+// const io = new Server(server, {
+//   cors: {
+//     origin: [/^https:\/\/ticket-booking-platform-fe\.vercel\.app$/, "http://localhost:3000", "http://localhost:5000"],
+//     credentials: true
+//   }
+// });
+
 const io = new Server(server, {
   cors: {
-    origin: [/^https:\/\/ticket-booking-platform-fe\.vercel\.app$/, "http://localhost:3000", "http://localhost:5000"],
+    origin: "https://ticket-booking-platform-fe.vercel.app", // Base domain only
     credentials: true
   }
 });
 
 
+
+// app.use(cors({
+//   origin: [
+//     /^https:\/\/ticket-booking-platform-fe\.vercel\.app$/,  // Correct regex format
+//     "http://localhost:5000"
+//   ],
+//   credentials: true
+// }));
+
 app.use(cors({
   origin: [
-    /^https:\/\/ticket-booking-platform-fe\.vercel\.app$/,  // Correct regex format
-    "http://localhost:5000"
+    "https://ticket-booking-platform-fe.vercel.app", // Correct Vercel frontend domain
+    "http://localhost:5000" // Local backend for development
   ],
   credentials: true
 }));

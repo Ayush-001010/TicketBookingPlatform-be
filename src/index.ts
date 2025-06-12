@@ -25,9 +25,13 @@ const io = new Server(server, {
   }
 });
 app.use(cors({
-  origin: [/^http:\/\/localhost:3000/, "http://localhost:5000"],
+  origin: [
+    /^https:\/\/ticket-booking-platform-fe\.vercel\.app$/,  // Correct regex format
+    "http://localhost:5000"
+  ],
   credentials: true
 }));
+
 
 app.use("/", (req: Request, res: Response, next: NextFunction) => {
   try {

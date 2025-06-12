@@ -23,11 +23,13 @@ export const signInFunc = async (req: Request, res: Response) => {
       process.env.secretKey || ""
     );
     console.log("Token  ", token);
-    res.cookie("trainCookie", token, { httpOnly: true });
+    // res.cookie("trainCookie", token, { httpOnly: true });
     res.cookie("trainCookie", token, {
-      secure: true,
-      sameSite: "strict",
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", // Only secure in production
+      sameSite: "strict"
     });
+    
 
     console.log("Cookies", req.cookies);
     return res.send({ success: true, data: userData[0] });

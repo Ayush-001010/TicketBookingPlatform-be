@@ -443,8 +443,8 @@ export const makePayment = async (req: Request, res: Response) => {
       payment_method_types: ["card"],
       line_items: data,
       mode: "payment",
-      success_url: "http://localhost:3000/#/success",
-      cancel_url: "http://localhost:3000/"
+      success_url: "https://ticket-booking-platform-fe.vercel.app/#/success",
+      cancel_url: "https://ticket-booking-platform-fe.vercel.app/"
     });
     console.log("Session ", session);
     return res.send({ success: true, data: session });
